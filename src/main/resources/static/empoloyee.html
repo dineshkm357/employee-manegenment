@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Management System</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+
+        h1 {
+            text-align: center;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 8px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Employee Management System</h1>
+        <button class="btn add-btn" onclick="openModal()">Add Employee</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Email</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="employeeTable">
+                <!-- Employee rows will be added here dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <div id="employeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Add/Edit Employee</h2>
+            <form id="employeeForm" onsubmit="addOrUpdateEmployee(event)">
+                <input type="hidden" id="employeeId">
+                <label for="firstName">First Name:</label>
+                <input type="text" id="firstName" required>
+                <label for="lastName">Last Name:</label>
+                <input type="text" id="lastName" required>
+                <label for="email">Email:</label>
+                <input type="email" id="email" required>
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const employeeTable = document.getElementById('employeeTable');
+        const employeeModal = document.getElementById('employeeModal');
+        let currentEditingEmployeeId = null; // To keep track of the employee being edited
+
+        // Function to open modal
+        function openModal() {
+            employeeModal.style.display = 'block';
+        }
+
+        // Function to close modal
+        function closeModal() {
+            employeeModal.style.display = 'none';
+            document.getElementById('employeeForm').reset();
+            currentEditingEmployeeId = null; // Reset the editing employee
+        }
+
+        // Function to fetch all employees
+        async function fetchEmployees() {
+            const response = await fetch('/api/employees');
+            const employees = await response.json();
+            employeeTable.innerHTML = ''; // Clear existing rows
+            employees.forEach(employee => {
+                const newRow = employeeTable.insertRow();
+                newRow.innerHTML = `
+                    <td>${employee.id}</td>
+                    <td>${employee.firstName}</td>
+                    <td>${employee.lastName}</td>
+                    <td>${employee.email}</td>
+                    <td class="actions">
+                        <button class="btn edit-btn" onclick="editEmployee(${employee.id})">Edit</button>
+                        <button class="btn delete-btn" onclick="deleteEmployee(${employee.id})">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        // Function to add or update employee
+        async function addOrUpdateEmployee(event) {
+            event.preventDefault();
+
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const email = document.getElementById('email').value;
+
+            if (currentEditingEmployeeId) {
+                // Update existing employee
+                await fetch(`/api/employees/${currentEditingEmployeeId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName, email })
+                });
+            } else {
+                // Create new employee
+                await fetch('/api/employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName, email })
+                });
+            }
+
+            closeModal();
+            fetchEmployees(); // Refresh the employee list
+        }
+
+        // Function to edit employee
+        async function editEmployee(id) {
+            const response = await fetch(`/api/employees/${id}`);
+            const employee = await response.json();
+
+            document.getElementById('firstName').value = employee.firstName;
+            document.getElementById('lastName').value = employee.lastName;
+            document.getElementById('email').value = employee.email;
+
+            openModal();
+            currentEditingEmployeeId = id; // Set the current editing employee ID
+        }
+
+        // Function to delete employee
+        async function deleteEmployee(id) {
+            await fetch(`/api/employees/${id}`, { method: 'DELETE' });
+            fetchEmployees(); // Refresh the employee list
+        }
+
+        // Initial fetch of employees when the page loads
+        fetchEmployees();
+    </script>
+</body>
+
+</html>

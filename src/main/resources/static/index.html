@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login and Logout with Auto Expire</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+    .container {
+      text-align: center;
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      margin-bottom: 20px;
+    }
+    input {
+      padding: 8px;
+      width: 200px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    p {
+      font-size: 14px;
+      color: #555;
+    }
+    #ipAddress {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Login Page</h2>
+
+    <!-- User Input for Login -->
+    <input type="text" id="userName" placeholder="Enter Username" required>
+    
+    <!-- Login and Logout Buttons -->
+    <div>
+      <button id="loginBtn">Login</button>
+      <button id="logoutBtn" style="display: none;">Logout</button>
+    </div>
+
+    <!-- Message Display -->
+    <p id="message"></p>
+
+    <!-- IP Address Display -->
+    <p id="ipAddress" style="display: none;"></p>
+
+    <!-- Redirect Button -->
+    <button id="redirectBtn" style="display: none;" onclick="window.location.href='employee.html'">Go to Employee Page</button>
+  </div>
+
+  <script>
+    const MAX_DEVICES = 2;  // Maximum allowed devices for login
+    const EXPIRATION_TIME = 5000; // 5 seconds in milliseconds
+
+    let userName = '';
+    let loggedDevices = JSON.parse(localStorage.getItem('loggedDevices')) || [];
+    let ipAddress = ''; // Store the IP address here
+    let loginTimeout; // Timeout variable to handle expiration
+
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const messageElement = document.getElementById('message');
+    const ipAddressElement = document.getElementById('ipAddress');
+    const redirectBtn = document.getElementById('redirectBtn');
+
+    // Check login status on page load
+    window.onload = () => {
+      const savedUserName = localStorage.getItem('userName');
+      if (savedUserName) {
+        // User is already logged in, show relevant buttons and message
+        userName = savedUserName;
+        messageElement.textContent = `Welcome back, ${userName}!`;
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        redirectBtn.style.display = 'inline-block';
+      }
+    };
+
+    // Handle Login button click
+    loginBtn.addEventListener('click', async () => {
+      userName = document.getElementById('userName').value;
+
+      if (!userName) {
+        messageElement.textContent = 'Please enter a username.';
+        return;
+      }
+
+      // Get the IP address of the user
+      const ipResponse = await fetch('https://api64.ipify.org?format=json');
+      const ipData = await ipResponse.json();
+      ipAddress = ipData.ip; // Store the IP address
+
+      // Simulate backend login API call
+      const response = await login(userName);
+
+      if (response.success) {
+        messageElement.textContent = `Login successful for ${userName}! Expiring in 5 seconds.`;
+        localStorage.setItem('userName', userName);
+        loggedDevices.push(userName);
+        localStorage.setItem('loggedDevices', JSON.stringify(loggedDevices));
+
+        // Display IP address after login
+        ipAddressElement.textContent = `Your IP Address: ${ipAddress}`;
+        ipAddressElement.style.display = 'block';
+
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        redirectBtn.style.display = 'inline-block';  // Show the redirect button
+
+        // Set a timeout to expire login after 5 seconds
+        loginTimeout = setTimeout(logoutUser, EXPIRATION_TIME);
+      } else {
+        messageElement.textContent = response.message;
+      }
+    });
+
+    // Handle Logout button click
+    logoutBtn.addEventListener('click', logoutUser);
+
+    // Simulate login API request
+    async function login(userName) {
+      // Here we check if the user is already logged in on two devices
+      if (loggedDevices.length >= MAX_DEVICES) {
+        return { success: false, message: 'Login failed. Only two devices can be logged in at a time.' };
+      }
+
+      // Simulate adding the user to logged devices (or validating on backend)
+      loggedDevices.push(userName);
+      localStorage.setItem('loggedDevices', JSON.stringify(loggedDevices));
+
+      return { success: true, message: '' };
+    }
+
+    // Function to handle logout and clear login data
+    function logoutUser() {
+      clearTimeout(loginTimeout); // Clear the timeout if it exists
+      localStorage.removeItem('userName');
+      loggedDevices = loggedDevices.filter(device => device !== userName);
+      localStorage.setItem('loggedDevices', JSON.stringify(loggedDevices));
+
+      messageElement.textContent = 'Logged out successfully!';
+
+      // Hide IP address and redirect button on logout
+      ipAddressElement.style.display = 'none';
+      redirectBtn.style.display = 'none';
+
+      loginBtn.style.display = 'inline-block';
+      logoutBtn.style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>
